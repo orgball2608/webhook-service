@@ -146,7 +146,7 @@ func sendKafkaMessageFunc(syncProducer sarama.SyncProducer, topic string) Produc
 
 		partition, offset, err := syncProducer.SendMessage(saramaMsg)
 		if err != nil {
-			return partition, offset, errors.Wrapf(ErrCannotSendMessage, err.Error())
+			return partition, offset, errors.Wrap(err, "cannot send message")
 		}
 		return partition, offset, nil
 	}

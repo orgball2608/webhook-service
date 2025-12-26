@@ -2,22 +2,28 @@ package webhook
 
 import "github.com/minhvuongrbs/webhook-service/internal/entities/subscriber"
 
-// Metadata
-/* Example:
-{
-  "name": "webhook name1",
-  "post_url": "https://webhook.site/9e15250a-d7fb-4aef-a19a-0476c74ce913",
-  "events": ["subscriber.created","subscriber.subscribed"]
-}
-*/
-
 type Metadata struct {
-	Name                  string                 `json:"name"`            // partner define
-	PostUrl               string                 `json:"post_url"`        // partner define
-	MaximumRequestPerTime int64                  `json:"maximum_request"` // partner expect 50
-	Events                []subscriber.EventName `json:"events"`          // registered events of partner
+	Name               string                 `json:"name"`
+	PostUrl            string                 `json:"post_url"`
+	RateLimitPerMinute int                    `json:"rate_limit_per_minute"`
+	SecretKey          string                 `json:"secret_key"`
+	Events             []subscriber.EventName `json:"events"`
+	Priority           string                 `json:"priority"`
+	// Circuit Breaker config
+	ErrorThresholdPercentage int `json:"error_threshold_percentage"`
+	MinRequestsToTrip        int `json:"min_requests_to_trip"`
+	EvaluationWindowSeconds  int `json:"evaluation_window_seconds"`
+	RedriveCount             int `json:"redrive_count"`
 }
 
 func (m Metadata) GetPostUrl() string {
 	return m.PostUrl
+}
+
+func (m Metadata) GetRateLimitPerMinute() int {
+	if m.RateLimitPerMinute == 0 {
+		return 1000
+	}
+
+	return m.RateLimitPerMinute
 }

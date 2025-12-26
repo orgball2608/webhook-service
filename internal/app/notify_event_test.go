@@ -33,10 +33,16 @@ func TestNotifyEventHandler_Execute(t *testing.T) {
 		webhookRepo := NewMockwebhookRepository(gomock.NewController(tt))
 		webhookRepo.EXPECT().GetWebhookById(gomock.Any(), sampleWebhookId).
 			Return(w, nil)
+		webhookRepo.EXPECT().InsertWebhookLog(gomock.Any(), gomock.Any()).Return(nil)
 		mockPartnerAdapter := NewMockPartnerAdapter(gomock.NewController(tt))
-		mockPartnerAdapter.EXPECT().NotifyWebhookEvent(gomock.Any(), w, sampleEvent).Return(nil)
+		mockPartnerAdapter.EXPECT().NotifyWebhookEvent(gomock.Any(), w, sampleEvent).Return(&webhook.WebhookResponse{}, nil)
+		mockCircuitBreaker := NewMockCircuitBreaker(gomock.NewController(tt))
+		mockCircuitBreaker.EXPECT().ShouldTrip(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, int64(0), int64(0), 0.0, nil)
+		mockRateLimiter := NewMockRateLimiter(gomock.NewController(tt))
+		mockRateLimiter.EXPECT().ShouldBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
+		mockRegisterHandler := NewMockNotifyEventHandler(gomock.NewController(tt))
 
-		cmdNotifyEventHandler := NewNotifyEventHandler(webhookRepo, mockPartnerAdapter)
+		cmdNotifyEventHandler := NewNotifyEventHandler(webhookRepo, mockPartnerAdapter, mockCircuitBreaker, mockRateLimiter, mockRegisterHandler)
 		err := cmdNotifyEventHandler.Execute(context.Background(), sampleEvent)
 
 		assert.NoError(tt, err)

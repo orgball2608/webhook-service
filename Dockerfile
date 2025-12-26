@@ -1,4 +1,4 @@
-FROM golang:1.21 as service-builder
+FROM golang:1.24.0 as service-builder
 
 # Set destination for COPY
 WORKDIR /app

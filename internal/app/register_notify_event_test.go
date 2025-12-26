@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/minhvuongrbs/webhook-service/internal/app"
+	"github.com/minhvuongrbs/webhook-service/internal/common"
 	"github.com/minhvuongrbs/webhook-service/internal/entities/subscriber"
 	"github.com/minhvuongrbs/webhook-service/internal/entities/webhook"
 	"github.com/stretchr/testify/assert"
@@ -30,11 +31,13 @@ func TestRegisterNotifyEventHandler_Execute(t *testing.T) {
 				Id:     sampleWebhookId,
 				Status: webhook.StatusActive,
 				Metadata: webhook.Metadata{
-					Events: []subscriber.EventName{subscriber.EventSubscribed, subscriber.EventCreated},
+					Events:   []subscriber.EventName{subscriber.EventSubscribed, subscriber.EventCreated},
+					Priority: common.PriorityHigh,
 				},
 			}, nil)
+		webhookRepo.EXPECT().InsertWebhookLog(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockTemporalAdapter := NewMocktemporalAdapter(gomock.NewController(tt))
-		mockTemporalAdapter.EXPECT().RegisterWorkflowNotifyEvent(gomock.Any(), sampleEvent).Return(nil)
+		mockTemporalAdapter.EXPECT().RegisterWorkflowNotifyEvent(gomock.Any(), sampleEvent, gomock.Any()).Return(nil)
 
 		cmdRegisterNotifyEventHandler := NewRegisterNotifyEventHandler(mockTemporalAdapter, webhookRepo)
 		err := cmdRegisterNotifyEventHandler.Execute(context.Background(), sampleEvent)
@@ -158,7 +161,7 @@ func TestRegisterNotifyEventHandler_Execute(t *testing.T) {
 				},
 			}, nil)
 		mockTemporalAdapter := NewMocktemporalAdapter(gomock.NewController(tt))
-		mockTemporalAdapter.EXPECT().RegisterWorkflowNotifyEvent(gomock.Any(), sampleEvent).Return(fmt.Errorf("any error"))
+		mockTemporalAdapter.EXPECT().RegisterWorkflowNotifyEvent(gomock.Any(), sampleEvent, gomock.Any()).Return(fmt.Errorf("any error"))
 
 		cmdRegisterNotifyEventHandler := NewRegisterNotifyEventHandler(mockTemporalAdapter, webhookRepo)
 		err := cmdRegisterNotifyEventHandler.Execute(context.Background(), sampleEvent)

@@ -16,8 +16,10 @@ type Webhook struct {
 type Status string
 
 const (
-	StatusActive   = Status("active")
-	StatusInactive = Status("inactive")
+	StatusActive              Status = "ACTIVE"
+	StatusInactive            Status = "INACTIVE"
+	StatusPendingVerification Status = "PENDING_VERIFICATION"
+	StatusPaused              Status = "PAUSED"
 )
 
 func NewWebhook(Id, PartnerId string, md Metadata) *Webhook {
@@ -30,4 +32,10 @@ func NewWebhook(Id, PartnerId string, md Metadata) *Webhook {
 
 func (w Webhook) GetPostUrl() string {
 	return w.Metadata.GetPostUrl()
+}
+
+type WebhookResponse struct {
+	StatusCode int
+	Body       string
+	Error      string
 }

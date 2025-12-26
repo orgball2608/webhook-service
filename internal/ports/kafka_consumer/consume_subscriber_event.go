@@ -12,66 +12,34 @@ import (
 )
 
 type ConsumeSubscriberEvent struct {
-	rateLimiter rateLimiter
-	App         app.App
+	rateLimiter    app.RateLimiter
+	App            app.App
+	partnerAdapter app.PartnerAdapter
 }
 
-func NewConsumeSubscriberEvent(app app.App) ConsumeSubscriberEvent {
+func NewConsumeSubscriberEvent(app app.App, partnerAdapter app.PartnerAdapter, rateLimit app.RateLimiter) ConsumeSubscriberEvent {
 	return ConsumeSubscriberEvent{
-		App: app,
+		App:            app,
+		partnerAdapter: partnerAdapter,
+		rateLimiter:    rateLimit,
 	}
-}
-
-type rateLimiter interface {
-	Validate() error
 }
 
 func (c ConsumeSubscriberEvent) Handle(ctx context.Context, message *kafka.ConsumerMessage) error {
 	l := logging.FromContext(ctx)
-
-	evt, err := fromKafkaMessage2SubscriberEvent(message)
-	if err != nil {
-		l.Warnw("cannot unmarshal purchase event", "error", err, "payload", string(message.Payload))
-		//return error for skip this message
+	var evt subscriber.Event
+	if err := json.Unmarshal(message.Payload, &evt); err != nil {
+		l.Warnw("cannot unmarshal subscriber event", "error", err, "payload", string(message.Payload))
 		return nil
 	}
-	//l = l.With("event_trace_id", evt.TraceID)
 
 	switch evt.EventName {
-	case subscriber.EventCreated:
-		fallthrough
-	case subscriber.EventSubscribed:
-		fallthrough
-	case subscriber.EventUnsubscribed:
+	case subscriber.EventCreated, subscriber.EventSubscribed, subscriber.EventUnsubscribed:
+		l.Infow("starting handle event", "event_name", evt.EventName, "webhook_id", evt.WebhookId)
 
-		//err = c.rateLimiter.Validate()
-		//if err != nil {
-		//	return err // kafka consume => stuck other msg
-		//	// solution: rate limit =>
-		//	// 1. ack old msg
-		//	// 2. produce new msg
-		//}
-
-		err = c.App.RegisterNotifyEventHandler.Execute(ctx, evt)
-		if err != nil {
-			return fmt.Errorf("failed to register notify event handler: %w", err)
-		}
-		return nil
+		// Delegate to App Layer for all logic
+		return c.App.NotifyEventHandler.Execute(ctx, evt)
 	default:
 		return fmt.Errorf("unknown event type: %s", evt.EventName)
 	}
-}
-
-// redis: depend on redis => fallback rate limit
-// max system workload one time: 10_000
-// max partner workload: 1_000
-// if currentWorkload >= maxWorkload * 0.8
-// validate maxPartnerWorkload < 1_000
-
-func fromKafkaMessage2SubscriberEvent(message *kafka.ConsumerMessage) (subscriber.Event, error) {
-	evt := subscriber.Event{}
-	if err := json.Unmarshal(message.Payload, &evt); err != nil {
-		return subscriber.Event{}, fmt.Errorf("json unmarshal subscriber event got error: %w", err)
-	}
-	return evt, nil
 }

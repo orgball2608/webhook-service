@@ -7,6 +7,7 @@ package app
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	subscriber "github.com/minhvuongrbs/webhook-service/internal/entities/subscriber"
@@ -37,11 +38,12 @@ func (m *MockPartnerAdapter) EXPECT() *MockPartnerAdapterMockRecorder {
 }
 
 // NotifyWebhookEvent mocks base method.
-func (m *MockPartnerAdapter) NotifyWebhookEvent(ctx context.Context, w *webhook.Webhook, subscriberEvent subscriber.Event) error {
+func (m *MockPartnerAdapter) NotifyWebhookEvent(ctx context.Context, w *webhook.Webhook, subscriberEvent subscriber.Event) (*webhook.WebhookResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NotifyWebhookEvent", ctx, w, subscriberEvent)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*webhook.WebhookResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // NotifyWebhookEvent indicates an expected call of NotifyWebhookEvent.
@@ -73,6 +75,21 @@ func (m *MockwebhookRepository) EXPECT() *MockwebhookRepositoryMockRecorder {
 	return m.recorder
 }
 
+// GetFailStreak mocks base method.
+func (m *MockwebhookRepository) GetFailStreak(ctx context.Context, webhookID string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFailStreak", ctx, webhookID)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFailStreak indicates an expected call of GetFailStreak.
+func (mr *MockwebhookRepositoryMockRecorder) GetFailStreak(ctx, webhookID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFailStreak", reflect.TypeOf((*MockwebhookRepository)(nil).GetFailStreak), ctx, webhookID)
+}
+
 // GetWebhookById mocks base method.
 func (m *MockwebhookRepository) GetWebhookById(ctx context.Context, webhookId string) (*webhook.Webhook, error) {
 	m.ctrl.T.Helper()
@@ -86,6 +103,63 @@ func (m *MockwebhookRepository) GetWebhookById(ctx context.Context, webhookId st
 func (mr *MockwebhookRepositoryMockRecorder) GetWebhookById(ctx, webhookId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookById", reflect.TypeOf((*MockwebhookRepository)(nil).GetWebhookById), ctx, webhookId)
+}
+
+// IncrFailStreak mocks base method.
+func (m *MockwebhookRepository) IncrFailStreak(ctx context.Context, webhookID string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IncrFailStreak", ctx, webhookID)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IncrFailStreak indicates an expected call of IncrFailStreak.
+func (mr *MockwebhookRepositoryMockRecorder) IncrFailStreak(ctx, webhookID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrFailStreak", reflect.TypeOf((*MockwebhookRepository)(nil).IncrFailStreak), ctx, webhookID)
+}
+
+// InsertWebhookLog mocks base method.
+func (m *MockwebhookRepository) InsertWebhookLog(ctx context.Context, log *webhook.Log) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InsertWebhookLog", ctx, log)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// InsertWebhookLog indicates an expected call of InsertWebhookLog.
+func (mr *MockwebhookRepositoryMockRecorder) InsertWebhookLog(ctx, log interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertWebhookLog", reflect.TypeOf((*MockwebhookRepository)(nil).InsertWebhookLog), ctx, log)
+}
+
+// UpdateWebhookLogRedriveStatus mocks base method.
+func (m *MockwebhookRepository) UpdateWebhookLogRedriveStatus(ctx context.Context, id int64, isResolved bool, errorMsg string, nextRedriveAt *time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateWebhookLogRedriveStatus", ctx, id, isResolved, errorMsg, nextRedriveAt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateWebhookLogRedriveStatus indicates an expected call of UpdateWebhookLogRedriveStatus.
+func (mr *MockwebhookRepositoryMockRecorder) UpdateWebhookLogRedriveStatus(ctx, id, isResolved, errorMsg, nextRedriveAt interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateWebhookLogRedriveStatus", reflect.TypeOf((*MockwebhookRepository)(nil).UpdateWebhookLogRedriveStatus), ctx, id, isResolved, errorMsg, nextRedriveAt)
+}
+
+// UpdateWebhookStatus mocks base method.
+func (m *MockwebhookRepository) UpdateWebhookStatus(ctx context.Context, webhookId string, status webhook.Status) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateWebhookStatus", ctx, webhookId, status)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateWebhookStatus indicates an expected call of UpdateWebhookStatus.
+func (mr *MockwebhookRepositoryMockRecorder) UpdateWebhookStatus(ctx, webhookId, status interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateWebhookStatus", reflect.TypeOf((*MockwebhookRepository)(nil).UpdateWebhookStatus), ctx, webhookId, status)
 }
 
 // MocktemporalAdapter is a mock of temporalAdapter interface.
@@ -112,15 +186,188 @@ func (m *MocktemporalAdapter) EXPECT() *MocktemporalAdapterMockRecorder {
 }
 
 // RegisterWorkflowNotifyEvent mocks base method.
-func (m *MocktemporalAdapter) RegisterWorkflowNotifyEvent(ctx context.Context, e subscriber.Event) error {
+func (m *MocktemporalAdapter) RegisterWorkflowNotifyEvent(ctx context.Context, e subscriber.Event, priority string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterWorkflowNotifyEvent", ctx, e)
+	ret := m.ctrl.Call(m, "RegisterWorkflowNotifyEvent", ctx, e, priority)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RegisterWorkflowNotifyEvent indicates an expected call of RegisterWorkflowNotifyEvent.
-func (mr *MocktemporalAdapterMockRecorder) RegisterWorkflowNotifyEvent(ctx, e interface{}) *gomock.Call {
+func (mr *MocktemporalAdapterMockRecorder) RegisterWorkflowNotifyEvent(ctx, e, priority interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterWorkflowNotifyEvent", reflect.TypeOf((*MocktemporalAdapter)(nil).RegisterWorkflowNotifyEvent), ctx, e)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterWorkflowNotifyEvent", reflect.TypeOf((*MocktemporalAdapter)(nil).RegisterWorkflowNotifyEvent), ctx, e, priority)
+}
+
+// MockRateLimiter is a mock of RateLimiter interface.
+type MockRateLimiter struct {
+	ctrl     *gomock.Controller
+	recorder *MockRateLimiterMockRecorder
+}
+
+// MockRateLimiterMockRecorder is the mock recorder for MockRateLimiter.
+type MockRateLimiterMockRecorder struct {
+	mock *MockRateLimiter
+}
+
+// NewMockRateLimiter creates a new mock instance.
+func NewMockRateLimiter(ctrl *gomock.Controller) *MockRateLimiter {
+	mock := &MockRateLimiter{ctrl: ctrl}
+	mock.recorder = &MockRateLimiterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRateLimiter) EXPECT() *MockRateLimiterMockRecorder {
+	return m.recorder
+}
+
+// ShouldBlock mocks base method.
+func (m *MockRateLimiter) ShouldBlock(ctx context.Context, partnerID string, rate int) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShouldBlock", ctx, partnerID, rate)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ShouldBlock indicates an expected call of ShouldBlock.
+func (mr *MockRateLimiterMockRecorder) ShouldBlock(ctx, partnerID, rate interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldBlock", reflect.TypeOf((*MockRateLimiter)(nil).ShouldBlock), ctx, partnerID, rate)
+}
+
+// MockCircuitBreaker is a mock of CircuitBreaker interface.
+type MockCircuitBreaker struct {
+	ctrl     *gomock.Controller
+	recorder *MockCircuitBreakerMockRecorder
+}
+
+// MockCircuitBreakerMockRecorder is the mock recorder for MockCircuitBreaker.
+type MockCircuitBreakerMockRecorder struct {
+	mock *MockCircuitBreaker
+}
+
+// NewMockCircuitBreaker creates a new mock instance.
+func NewMockCircuitBreaker(ctrl *gomock.Controller) *MockCircuitBreaker {
+	mock := &MockCircuitBreaker{ctrl: ctrl}
+	mock.recorder = &MockCircuitBreakerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCircuitBreaker) EXPECT() *MockCircuitBreakerMockRecorder {
+	return m.recorder
+}
+
+// RecordCBResult mocks base method.
+func (m *MockCircuitBreaker) RecordCBResult(ctx context.Context, webhookID string, isSuccess bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordCBResult", ctx, webhookID, isSuccess)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecordCBResult indicates an expected call of RecordCBResult.
+func (mr *MockCircuitBreakerMockRecorder) RecordCBResult(ctx, webhookID, isSuccess interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordCBResult", reflect.TypeOf((*MockCircuitBreaker)(nil).RecordCBResult), ctx, webhookID, isSuccess)
+}
+
+// ShouldTrip mocks base method.
+func (m *MockCircuitBreaker) ShouldTrip(ctx context.Context, webhookID string, errorThreshold, minRequests, windowSeconds int) (bool, int64, int64, float64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShouldTrip", ctx, webhookID, errorThreshold, minRequests, windowSeconds)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(int64)
+	ret3, _ := ret[3].(float64)
+	ret4, _ := ret[4].(error)
+	return ret0, ret1, ret2, ret3, ret4
+}
+
+// ShouldTrip indicates an expected call of ShouldTrip.
+func (mr *MockCircuitBreakerMockRecorder) ShouldTrip(ctx, webhookID, errorThreshold, minRequests, windowSeconds interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldTrip", reflect.TypeOf((*MockCircuitBreaker)(nil).ShouldTrip), ctx, webhookID, errorThreshold, minRequests, windowSeconds)
+}
+
+// MockNotifyEventHandler is a mock of NotifyEventHandler interface.
+type MockNotifyEventHandler struct {
+	ctrl     *gomock.Controller
+	recorder *MockNotifyEventHandlerMockRecorder
+}
+
+// MockNotifyEventHandlerMockRecorder is the mock recorder for MockNotifyEventHandler.
+type MockNotifyEventHandlerMockRecorder struct {
+	mock *MockNotifyEventHandler
+}
+
+// NewMockNotifyEventHandler creates a new mock instance.
+func NewMockNotifyEventHandler(ctrl *gomock.Controller) *MockNotifyEventHandler {
+	mock := &MockNotifyEventHandler{ctrl: ctrl}
+	mock.recorder = &MockNotifyEventHandlerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockNotifyEventHandler) EXPECT() *MockNotifyEventHandlerMockRecorder {
+	return m.recorder
+}
+
+// Execute mocks base method.
+func (m *MockNotifyEventHandler) Execute(ctx context.Context, e subscriber.Event) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Execute", ctx, e)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Execute indicates an expected call of Execute.
+func (mr *MockNotifyEventHandlerMockRecorder) Execute(ctx, e interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockNotifyEventHandler)(nil).Execute), ctx, e)
+}
+
+// ExecuteWithLogID mocks base method.
+func (m *MockNotifyEventHandler) ExecuteWithLogID(ctx context.Context, e subscriber.Event, logID int64, redriveCount int, currentTime time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecuteWithLogID", ctx, e, logID, redriveCount, currentTime)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ExecuteWithLogID indicates an expected call of ExecuteWithLogID.
+func (mr *MockNotifyEventHandlerMockRecorder) ExecuteWithLogID(ctx, e, logID, redriveCount, currentTime interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteWithLogID", reflect.TypeOf((*MockNotifyEventHandler)(nil).ExecuteWithLogID), ctx, e, logID, redriveCount, currentTime)
+}
+
+// GetWebhookById mocks base method.
+func (m *MockNotifyEventHandler) GetWebhookById(ctx context.Context, webhookId string) (*webhook.Webhook, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWebhookById", ctx, webhookId)
+	ret0, _ := ret[0].(*webhook.Webhook)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetWebhookById indicates an expected call of GetWebhookById.
+func (mr *MockNotifyEventHandlerMockRecorder) GetWebhookById(ctx, webhookId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookById", reflect.TypeOf((*MockNotifyEventHandler)(nil).GetWebhookById), ctx, webhookId)
+}
+
+// InsertWebhookLog mocks base method.
+func (m *MockNotifyEventHandler) InsertWebhookLog(ctx context.Context, log *webhook.Log) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InsertWebhookLog", ctx, log)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// InsertWebhookLog indicates an expected call of InsertWebhookLog.
+func (mr *MockNotifyEventHandlerMockRecorder) InsertWebhookLog(ctx, log interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertWebhookLog", reflect.TypeOf((*MockNotifyEventHandler)(nil).InsertWebhookLog), ctx, log)
 }

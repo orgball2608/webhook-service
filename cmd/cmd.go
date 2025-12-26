@@ -30,6 +30,12 @@ func AppCommandLineInterface() *cli.App {
 			Action: startTemporalWorker,
 			Flags:  []cli.Flag{},
 		},
+		{
+			Name:   "temporal_cron_worker",
+			Usage:  "run temporal cron redrive worker",
+			Action: StartTemporalCronWorker,
+			Flags:  []cli.Flag{},
+		},
 	}
 	return appCli
 }

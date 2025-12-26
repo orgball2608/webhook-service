@@ -41,9 +41,14 @@ func NewMysqlDatabaseConn(conf Config) (*sql.DB, error) {
 	db.SetMaxOpenConns(conf.MaxOpenConn)
 	db.SetMaxIdleConns(conf.MaxIdleConn)
 	db.SetConnMaxLifetime(conf.ConnMaxLifeTime)
-	if _err := db.Ping(); _err != nil {
-		return nil, _err
-	}
 
-	return db, nil
+	// Retry ping up to 10 times with exponential backoff
+	maxRetries := 10
+	for i := 0; i < maxRetries; i++ {
+		if err := db.Ping(); err == nil {
+			return db, nil
+		}
+		time.Sleep(time.Duration(i+1) * time.Second)
+	}
+	return nil, db.Ping() // Return the last error
 }

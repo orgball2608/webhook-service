@@ -5,10 +5,11 @@ logger:
   environment: "dev"
   service_name: "webhook_service"
   level: debug
-  encoding: json
+  encoding: console
   disable_stacktrace: true
 
 database:
+  # Use Docker service hostname when running in container
   address: mysql_app:3306
   user: app_user
   passwd: pwd123
@@ -29,7 +30,7 @@ kafka_subscriber_event:
   topic: "flodesk.account.subscriber_event"
   auto_commit: true
   client_id: "flodesk.webhook"
-  consumer_group: "flodesk.webhook.subscriber_event.notify_event"
+  consumer_group: "flodesk.webhook.subscriber_event.notify_event_test3"
 
 dead_letter_producer:
 #  brokers: 0.0.0.0:29091,0.0.0.0:29092,0.0.0.0:29093
@@ -49,5 +50,5 @@ http_client:
   timeout: 30s
 
 monitoring:
-  kafka_consumer_prometheus_port: 8081
+  kafka_consumer_prometheus_port: 8086
   temporal_worker_prometheus_port: 8082

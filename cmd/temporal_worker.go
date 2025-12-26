@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/minhvuongrbs/webhook-service/config"
+	"github.com/minhvuongrbs/webhook-service/internal/common"
 	"github.com/minhvuongrbs/webhook-service/internal/ports/temporal_workflow"
 	"github.com/minhvuongrbs/webhook-service/internal/service"
 	"github.com/minhvuongrbs/webhook-service/pkg/logging"
@@ -27,11 +28,6 @@ func startTemporalWorker(cmdCLI *cli.Context) error {
 	_ = zap.S()
 	metric_server.StartPromAndHealthHTTPServerNoLocking(conf.Monitoring.TemporalWorkerPrometheusPort)
 
-	temporalWorker, err := temporal.NewTemporalWorker(conf.Temporal, conf.Temporal.TaskQueue)
-	if err != nil {
-		return fmt.Errorf("init temporal worker got error: %w", err)
-	}
-
 	app, err := service.NewApplication(conf)
 	if err != nil {
 		return fmt.Errorf("create temporal client application got error: %w", err)
@@ -40,10 +36,28 @@ func startTemporalWorker(cmdCLI *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("init worker sync lfvn contract got error: %w", err)
 	}
-	workerNotifyEventToPartner.Register(temporalWorker)
 
-	if err = temporalWorker.Run(worker.InterruptCh()); err != nil {
-		return err
+	queues := map[string]int{
+		common.TaskQueueDefault: 100,
+		common.TaskQueueHigh:    500,
+		common.TaskQueueLow:     20,
 	}
-	return nil
+
+	for qName, concurrency := range queues {
+		w, err := temporal.NewTemporalWorkerWithOptions(conf.Temporal, qName, worker.Options{
+			MaxConcurrentActivityExecutionSize: concurrency,
+		})
+		if err != nil {
+			return fmt.Errorf("init temporal worker for queue %s got error: %w", qName, err)
+		}
+		workerNotifyEventToPartner.Register(w)
+		go func(w worker.Worker) {
+			if err := w.Run(worker.InterruptCh()); err != nil {
+				zap.L().Error("worker failed", zap.String("queue", qName), zap.Error(err))
+			}
+		}(w)
+	}
+
+	// Wait indefinitely
+	select {}
 }

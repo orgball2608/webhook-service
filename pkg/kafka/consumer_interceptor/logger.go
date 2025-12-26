@@ -2,6 +2,7 @@ package consumer_interceptor
 
 import (
 	"context"
+	"fmt"
 	"runtime/debug"
 
 	"github.com/google/uuid"
@@ -12,18 +13,20 @@ import (
 
 func LoggerHandlerWithCtx() kafka.ConsumeHandlerInterceptorWithCtx {
 	return func(handler kafka.ConsumeMessageHandlerWithCtx) kafka.ConsumeMessageHandlerWithCtx {
-		return func(ctx context.Context, m *kafka.ConsumerMessage) error {
+		return func(ctx context.Context, m *kafka.ConsumerMessage) (err error) {
 			ll := logging.FromContext(ctx)
 
 			ll.Infow("consume message")
 			defer func() {
 				if r := recover(); r != nil {
-					ll.Errorw("consume message got panic", "stack_trace", debug.Stack())
-					panic(r)
+					// include recovered value and stack as string for easier debugging
+					ll.Errorw("consume message got panic", "panic_value", r, "stack_trace", string(debug.Stack()))
+					// convert panic into an error so the consumer loop can handle it without crashing the whole process
+					err = fmt.Errorf("panic in consume handler: %v", r)
 				}
 			}()
 
-			err := handler(ctx, m)
+			err = handler(ctx, m)
 			if err != nil {
 				ll.Errorw("consume message got error", "error", err)
 				return err
