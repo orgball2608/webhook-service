@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -194,46 +195,46 @@ func (r Repository) UpdateWebhookLogStatus(ctx context.Context, id int64, status
 }
 
 func (r Repository) IncrFailRate(ctx context.Context, webhookID string) (int64, error) {
-	key := common.RedisKeyFailRate + webhookID
-	now := float64(time.Now().Unix())
-	// Add timestamp to sorted set
-	err := r.redis.ZAdd(ctx, key, redis.Z{Score: now, Member: now}).Err()
+	// Use bucketed counters: per minute
+	now := time.Now().Unix()
+	minuteBucket := now / 60
+	key := fmt.Sprintf("%s%s:%d", common.RedisKeyFailRate, webhookID, minuteBucket)
+	count, err := r.redis.Incr(ctx, key).Result()
 	if err != nil {
 		return 0, err
 	}
-	// Remove old entries (older than 1 hour)
-	min := fmt.Sprintf("%f", float64(time.Now().Add(-time.Hour).Unix()))
-	r.redis.ZRemRangeByScore(ctx, key, "-inf", min)
-	// Get count
-	count, err := r.redis.ZCard(ctx, key).Result()
-	if err != nil {
-		return 0, err
-	}
+	// Set TTL for the bucket (e.g., 2 hours to keep recent data)
+	r.redis.Expire(ctx, key, 2*time.Hour)
 	return count, nil
 }
 
 func (r Repository) GetFailRate(ctx context.Context, webhookID string) (float64, error) {
-	failKey := common.RedisKeyFailRate + webhookID
-	successKey := common.RedisKeySuccessRate + webhookID
-	min := fmt.Sprintf("%f", float64(time.Now().Add(-time.Hour).Unix()))
-
-	// Clean old entries
-	r.redis.ZRemRangeByScore(ctx, failKey, "-inf", min)
-	r.redis.ZRemRangeByScore(ctx, successKey, "-inf", min)
-
-	failCount, err := r.redis.ZCard(ctx, failKey).Result()
-	if err != nil {
-		return 0, err
+	now := time.Now().Unix()
+	// Sum last 60 minutes
+	total := int64(0)
+	for i := int64(0); i < 60; i++ {
+		minuteBucket := (now / 60) - i
+		key := fmt.Sprintf("%s%s:%d", common.RedisKeyFailRate, webhookID, minuteBucket)
+		count, err := r.redis.Get(ctx, key).Int64()
+		if err == nil {
+			total += count
+		}
 	}
-	successCount, err := r.redis.ZCard(ctx, successKey).Result()
-	if err != nil {
-		return 0, err
+	// For success
+	successTotal := int64(0)
+	for i := int64(0); i < 60; i++ {
+		minuteBucket := (now / 60) - i
+		key := fmt.Sprintf("%s%s:%d", common.RedisKeySuccessRate, webhookID, minuteBucket)
+		count, err := r.redis.Get(ctx, key).Int64()
+		if err == nil {
+			successTotal += count
+		}
 	}
-	total := failCount + successCount
-	if total == 0 {
+	grandTotal := total + successTotal
+	if grandTotal == 0 {
 		return 0, nil
 	}
-	return float64(failCount) / float64(total) * 100, nil
+	return float64(total) / float64(grandTotal) * 100, nil
 }
 
 func (r Repository) ResetFailRate(ctx context.Context, webhookID string) error {
@@ -245,15 +246,167 @@ func (r Repository) ResetFailRate(ctx context.Context, webhookID string) error {
 }
 
 func (r Repository) IncrSuccessRate(ctx context.Context, webhookID string) error {
-	key := common.RedisKeySuccessRate + webhookID
-	now := float64(time.Now().Unix())
-	// Add timestamp to sorted set
-	err := r.redis.ZAdd(ctx, key, redis.Z{Score: now, Member: now}).Err()
+	// Use bucketed counters: per minute
+	now := time.Now().Unix()
+	minuteBucket := now / 60
+	key := fmt.Sprintf("%s%s:%d", common.RedisKeySuccessRate, webhookID, minuteBucket)
+	_, err := r.redis.Incr(ctx, key).Result()
 	if err != nil {
 		return err
 	}
-	// Remove old entries (older than 1 hour)
-	min := fmt.Sprintf("%f", float64(time.Now().Add(-time.Hour).Unix()))
-	r.redis.ZRemRangeByScore(ctx, key, "-inf", min)
+	// Set TTL for the bucket (e.g., 2 hours to keep recent data)
+	r.redis.Expire(ctx, key, 2*time.Hour)
 	return nil
+}
+
+func (r Repository) Incr4xxRate(ctx context.Context, webhookID string) (int64, error) {
+	// Use bucketed counters: per minute
+	now := time.Now().Unix()
+	minuteBucket := now / 60
+	key := fmt.Sprintf("%s%s:%d", common.RedisKey4xxRate, webhookID, minuteBucket)
+	count, err := r.redis.Incr(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+	// Set TTL for the bucket (e.g., 2 hours to keep recent data)
+	r.redis.Expire(ctx, key, 2*time.Hour)
+	return count, nil
+}
+
+func (r Repository) Get4xxRate(ctx context.Context, webhookID string) (float64, error) {
+	now := time.Now().Unix()
+	// Sum last 1440 minutes (24 hours)
+	total := int64(0)
+	for i := int64(0); i < 1440; i++ {
+		minuteBucket := (now / 60) - i
+		key := fmt.Sprintf("%s%s:%d", common.RedisKey4xxRate, webhookID, minuteBucket)
+		count, err := r.redis.Get(ctx, key).Int64()
+		if err == nil {
+			total += count
+		}
+	}
+	// For total requests in 24 hours
+	successTotal := int64(0)
+	for i := int64(0); i < 1440; i++ {
+		minuteBucket := (now / 60) - i
+		key := fmt.Sprintf("%s%s:%d", common.RedisKeySuccessRate, webhookID, minuteBucket)
+		count, err := r.redis.Get(ctx, key).Int64()
+		if err == nil {
+			successTotal += count
+		}
+	}
+	failTotal := int64(0)
+	for i := int64(0); i < 1440; i++ {
+		minuteBucket := (now / 60) - i
+		key := fmt.Sprintf("%s%s:%d", common.RedisKeyFailRate, webhookID, minuteBucket)
+		count, err := r.redis.Get(ctx, key).Int64()
+		if err == nil {
+			failTotal += count
+		}
+	}
+	grandTotal := total + successTotal + failTotal
+	if grandTotal == 0 {
+		return 0, nil
+	}
+	return float64(total) / float64(grandTotal) * 100, nil
+}
+
+func (r Repository) IncrStats(ctx context.Context, webhookID string, isSuccess bool) {
+	bucket := time.Now().Unix() / 600 // 10-minute buckets
+	typeStr := "success"
+	if !isSuccess {
+		typeStr = "fail"
+	}
+	key := fmt.Sprintf("webhook:stats:%s:%s:%d", webhookID, typeStr, bucket)
+	r.redis.Incr(ctx, key)
+	r.redis.Expire(ctx, key, 7*time.Hour)
+}
+
+func (r Repository) GetActiveWebhooks(ctx context.Context) ([]*webhook.Webhook, error) {
+	return r.GetActiveWebhooksPaginated(ctx, 0, 500)
+}
+
+// GetActiveWebhooksPaginated returns a page of active webhooks (for batch processing)
+func (r Repository) GetActiveWebhooksPaginated(ctx context.Context, offset, limit int) ([]*webhook.Webhook, error) {
+	q := da_generated.New(r.db)
+	rows, err := q.GetActiveWebhooksPaginated(ctx, &da_generated.GetActiveWebhooksPaginatedParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*webhook.Webhook, 0, len(rows))
+	for _, w := range rows {
+		var md webhook.Metadata
+		_ = json.Unmarshal(w.Metadata, &md)
+		result = append(result, &webhook.Webhook{
+			Id:        w.ID,
+			Status:    toEntityStatus(w.Status),
+			PartnerId: w.PartnerID,
+			Metadata:  md,
+			CreatedAt: w.CreatedAt,
+			UpdatedAt: w.UpdatedAt,
+		})
+	}
+	return result, nil
+}
+
+func (r Repository) CalculateSuccessRate(ctx context.Context, webhookID string) (float64, int64, error) {
+	now := time.Now().Unix()
+	var (
+		successKeys []string
+		failKeys    []string
+	)
+	for i := int64(0); i < 36; i++ {
+		bucket := (now / 600) - i
+		successKeys = append(successKeys, fmt.Sprintf("webhook:stats:%s:success:%d", webhookID, bucket))
+		failKeys = append(failKeys, fmt.Sprintf("webhook:stats:%s:fail:%d", webhookID, bucket))
+	}
+	// MGet for all success and fail keys
+	successVals, _ := r.redis.MGet(ctx, successKeys...).Result()
+	failVals, _ := r.redis.MGet(ctx, failKeys...).Result()
+
+	successTotal := int64(0)
+	failTotal := int64(0)
+	for _, v := range successVals {
+		if v == nil {
+			continue
+		}
+		if n, err := toInt64(v); err == nil {
+			successTotal += n
+		}
+	}
+	for _, v := range failVals {
+		if v == nil {
+			continue
+		}
+		if n, err := toInt64(v); err == nil {
+			failTotal += n
+		}
+	}
+	total := successTotal + failTotal
+	if total == 0 {
+		return 0, 0, nil
+	}
+	rate := float64(successTotal) / float64(total) * 100
+	return rate, total, nil
+}
+
+func toInt64(v interface{}) (int64, error) {
+	switch val := v.(type) {
+	case int64:
+		return val, nil
+	case int:
+		return int64(val), nil
+	case string:
+		return parseInt(val)
+	case []byte:
+		return parseInt(string(val))
+	}
+	return 0, fmt.Errorf("cannot convert %v to int64", v)
+}
+
+func parseInt(s string) (int64, error) {
+	return strconv.ParseInt(s, 10, 64)
 }

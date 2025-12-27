@@ -75,6 +75,52 @@ func (m *MockwebhookRepository) EXPECT() *MockwebhookRepositoryMockRecorder {
 	return m.recorder
 }
 
+// CalculateSuccessRate mocks base method.
+func (m *MockwebhookRepository) CalculateSuccessRate(ctx context.Context, webhookID string) (float64, int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CalculateSuccessRate", ctx, webhookID)
+	ret0, _ := ret[0].(float64)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// CalculateSuccessRate indicates an expected call of CalculateSuccessRate.
+func (mr *MockwebhookRepositoryMockRecorder) CalculateSuccessRate(ctx, webhookID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalculateSuccessRate", reflect.TypeOf((*MockwebhookRepository)(nil).CalculateSuccessRate), ctx, webhookID)
+}
+
+// Get4xxRate mocks base method.
+func (m *MockwebhookRepository) Get4xxRate(ctx context.Context, webhookID string) (float64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get4xxRate", ctx, webhookID)
+	ret0, _ := ret[0].(float64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Get4xxRate indicates an expected call of Get4xxRate.
+func (mr *MockwebhookRepositoryMockRecorder) Get4xxRate(ctx, webhookID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get4xxRate", reflect.TypeOf((*MockwebhookRepository)(nil).Get4xxRate), ctx, webhookID)
+}
+
+// GetActiveWebhooks mocks base method.
+func (m *MockwebhookRepository) GetActiveWebhooks(ctx context.Context) ([]*webhook.Webhook, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveWebhooks", ctx)
+	ret0, _ := ret[0].([]*webhook.Webhook)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveWebhooks indicates an expected call of GetActiveWebhooks.
+func (mr *MockwebhookRepositoryMockRecorder) GetActiveWebhooks(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveWebhooks", reflect.TypeOf((*MockwebhookRepository)(nil).GetActiveWebhooks), ctx)
+}
+
 // GetFailRate mocks base method.
 func (m *MockwebhookRepository) GetFailRate(ctx context.Context, webhookID string) (float64, error) {
 	m.ctrl.T.Helper()
@@ -105,6 +151,21 @@ func (mr *MockwebhookRepositoryMockRecorder) GetWebhookById(ctx, webhookId inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebhookById", reflect.TypeOf((*MockwebhookRepository)(nil).GetWebhookById), ctx, webhookId)
 }
 
+// Incr4xxRate mocks base method.
+func (m *MockwebhookRepository) Incr4xxRate(ctx context.Context, webhookID string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Incr4xxRate", ctx, webhookID)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Incr4xxRate indicates an expected call of Incr4xxRate.
+func (mr *MockwebhookRepositoryMockRecorder) Incr4xxRate(ctx, webhookID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Incr4xxRate", reflect.TypeOf((*MockwebhookRepository)(nil).Incr4xxRate), ctx, webhookID)
+}
+
 // IncrFailRate mocks base method.
 func (m *MockwebhookRepository) IncrFailRate(ctx context.Context, webhookID string) (int64, error) {
 	m.ctrl.T.Helper()
@@ -118,6 +179,18 @@ func (m *MockwebhookRepository) IncrFailRate(ctx context.Context, webhookID stri
 func (mr *MockwebhookRepositoryMockRecorder) IncrFailRate(ctx, webhookID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrFailRate", reflect.TypeOf((*MockwebhookRepository)(nil).IncrFailRate), ctx, webhookID)
+}
+
+// IncrStats mocks base method.
+func (m *MockwebhookRepository) IncrStats(ctx context.Context, webhookID string, isSuccess bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "IncrStats", ctx, webhookID, isSuccess)
+}
+
+// IncrStats indicates an expected call of IncrStats.
+func (mr *MockwebhookRepositoryMockRecorder) IncrStats(ctx, webhookID, isSuccess interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrStats", reflect.TypeOf((*MockwebhookRepository)(nil).IncrStats), ctx, webhookID, isSuccess)
 }
 
 // IncrSuccessRate mocks base method.
@@ -329,6 +402,36 @@ func (m *MockNotifyEventHandler) EXPECT() *MockNotifyEventHandlerMockRecorder {
 	return m.recorder
 }
 
+// CalculateSuccessRate mocks base method.
+func (m *MockNotifyEventHandler) CalculateSuccessRate(ctx context.Context, webhookID string) (float64, int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CalculateSuccessRate", ctx, webhookID)
+	ret0, _ := ret[0].(float64)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// CalculateSuccessRate indicates an expected call of CalculateSuccessRate.
+func (mr *MockNotifyEventHandlerMockRecorder) CalculateSuccessRate(ctx, webhookID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalculateSuccessRate", reflect.TypeOf((*MockNotifyEventHandler)(nil).CalculateSuccessRate), ctx, webhookID)
+}
+
+// DisableWebhook mocks base method.
+func (m *MockNotifyEventHandler) DisableWebhook(ctx context.Context, webhookID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DisableWebhook", ctx, webhookID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DisableWebhook indicates an expected call of DisableWebhook.
+func (mr *MockNotifyEventHandlerMockRecorder) DisableWebhook(ctx, webhookID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableWebhook", reflect.TypeOf((*MockNotifyEventHandler)(nil).DisableWebhook), ctx, webhookID)
+}
+
 // Execute mocks base method.
 func (m *MockNotifyEventHandler) Execute(ctx context.Context, e subscriber.Event) error {
 	m.ctrl.T.Helper()
@@ -355,6 +458,21 @@ func (m *MockNotifyEventHandler) ExecuteWithLogID(ctx context.Context, e subscri
 func (mr *MockNotifyEventHandlerMockRecorder) ExecuteWithLogID(ctx, e, logID, redriveCount, currentTime interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteWithLogID", reflect.TypeOf((*MockNotifyEventHandler)(nil).ExecuteWithLogID), ctx, e, logID, redriveCount, currentTime)
+}
+
+// GetActiveWebhooks mocks base method.
+func (m *MockNotifyEventHandler) GetActiveWebhooks(ctx context.Context) ([]*webhook.Webhook, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveWebhooks", ctx)
+	ret0, _ := ret[0].([]*webhook.Webhook)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveWebhooks indicates an expected call of GetActiveWebhooks.
+func (mr *MockNotifyEventHandlerMockRecorder) GetActiveWebhooks(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveWebhooks", reflect.TypeOf((*MockNotifyEventHandler)(nil).GetActiveWebhooks), ctx)
 }
 
 // GetWebhookById mocks base method.

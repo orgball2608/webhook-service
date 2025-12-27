@@ -88,6 +88,10 @@ func CronRedriveWorkflow(ctx workflow.Context) error {
 	for _, partnerID := range partners {
 		_ = workflow.ExecuteChildWorkflow(ctx, RedrivePartnerEventsWorkflow, partnerID)
 	}
+
+	// Execute Webhook Health Audit
+	_ = workflow.ExecuteChildWorkflow(ctx, "WebhookHealthAudit")
+
 	return nil
 }
 

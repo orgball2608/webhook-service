@@ -9,6 +9,8 @@ import (
 )
 
 type Querier interface {
+	GetActiveWebhooks(ctx context.Context) ([]*Webhook, error)
+	GetActiveWebhooksPaginated(ctx context.Context, arg *GetActiveWebhooksPaginatedParams) ([]*Webhook, error)
 	GetWebhookById(ctx context.Context, id string) (*Webhook, error)
 	GetWebhooksByIDs(ctx context.Context, webhookIds []string) ([]*Webhook, error)
 	InsertWebhookLog(ctx context.Context, arg *InsertWebhookLogParams) error

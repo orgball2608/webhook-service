@@ -33,6 +33,7 @@ func startTemporalWorker(cmdCLI *cli.Context) error {
 	fx.New(
 		service.ProvideApplication(conf),
 		fx.Provide(temporal_workflow.NewWorkflowNotifyEventToPartner),
+		fx.Provide(temporal_workflow.NewWebhookHealthAudit),
 		fx.Provide(func(conf config.Config) map[string]worker.Options {
 			return map[string]worker.Options{
 				common.QueueCritical: {
@@ -48,7 +49,7 @@ func startTemporalWorker(cmdCLI *cli.Context) error {
 				},
 			}
 		}),
-		fx.Invoke(func(queues map[string]worker.Options, workflow *temporal_workflow.NotifyEventToPartner, conf config.Config) {
+		fx.Invoke(func(queues map[string]worker.Options, workflow *temporal_workflow.NotifyEventToPartner, audit temporal_workflow.WebhookHealthAudit, conf config.Config) {
 			metric_server.StartPromAndHealthHTTPServerNoLocking(conf.Monitoring.TemporalWorkerPrometheusPort)
 			for qName, options := range queues {
 				w, err := temporal.NewTemporalWorkerWithOptions(conf.Temporal, qName, options)
@@ -56,6 +57,7 @@ func startTemporalWorker(cmdCLI *cli.Context) error {
 					panic(fmt.Errorf("init temporal worker for queue %s got error: %w", qName, err))
 				}
 				workflow.Register(w)
+				audit.Register(w)
 				go func(w worker.Worker) {
 					if err := w.Run(worker.InterruptCh()); err != nil {
 						zap.L().Error("worker failed", zap.String("queue", qName), zap.Error(err))

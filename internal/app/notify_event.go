@@ -55,22 +55,11 @@ func (h notifyEventHandlerImpl) Execute(ctx context.Context, e subscriber.Event)
 	status := "SUCCESS"
 	if err != nil {
 		status = "FAILED"
-		// Increment fail rate
-		if _, rateErr := h.webhookRepository.IncrFailRate(ctx, w.Id); rateErr == nil {
-			// Check if rate exceeds threshold
-			rate, _ := h.webhookRepository.GetFailRate(ctx, w.Id)
-			if rate > 60 {
-				// Auto-disable webhook
-				if updateErr := h.webhookRepository.UpdateWebhookStatus(ctx, w.Id, webhook.StatusPaused); updateErr != nil {
-					fmt.Printf("failed to auto-disable webhook %s: %v\n", w.Id, updateErr)
-				} else {
-					fmt.Printf("auto-disabled webhook %s due to high fail rate %.2f%%\n", w.Id, rate)
-				}
-			}
-		}
+		// Record failure stat
+		h.webhookRepository.IncrStats(ctx, w.Id, false)
 	} else {
-		// Increment success rate
-		h.webhookRepository.IncrSuccessRate(ctx, w.Id)
+		// Record success stat
+		h.webhookRepository.IncrStats(ctx, w.Id, true)
 	}
 
 	// Log the webhook notification
@@ -117,22 +106,11 @@ func (h notifyEventHandlerImpl) ExecuteWithLogID(ctx context.Context, e subscrib
 	status := "SUCCESS"
 	if err != nil {
 		status = "FAILED"
-		// Increment fail rate
-		if _, rateErr := h.webhookRepository.IncrFailRate(ctx, w.Id); rateErr == nil {
-			// Check if rate exceeds threshold
-			rate, _ := h.webhookRepository.GetFailRate(ctx, w.Id)
-			if rate > 60 {
-				// Auto-disable webhook
-				if updateErr := h.webhookRepository.UpdateWebhookStatus(ctx, w.Id, webhook.StatusPaused); updateErr != nil {
-					fmt.Printf("failed to auto-disable webhook %s: %v\n", w.Id, updateErr)
-				} else {
-					fmt.Printf("auto-disabled webhook %s due to high fail rate %.2f%%\n", w.Id, rate)
-				}
-			}
-		}
+		// Record failure stat
+		h.webhookRepository.IncrStats(ctx, w.Id, false)
 	} else {
-		// Increment success rate
-		h.webhookRepository.IncrSuccessRate(ctx, w.Id)
+		// Record success stat
+		h.webhookRepository.IncrStats(ctx, w.Id, true)
 	}
 
 	// Log the webhook notification
@@ -190,7 +168,12 @@ func (h notifyEventHandlerImpl) InsertWebhookLog(ctx context.Context, log *webho
 }
 
 func (h notifyEventHandlerImpl) isCircuitOpen(ctx context.Context, webhookID string) bool {
-	shouldTrip, _, _, _, _ := h.circuitBreaker.ShouldTrip(ctx, webhookID, 90, 20, 300) // Default values
+	w, err := h.webhookRepository.GetWebhookById(ctx, webhookID)
+	if err != nil || w == nil {
+		return false // fallback: do not trip CB if cannot get config
+	}
+	cbCfg := w.Metadata
+	shouldTrip, _, _, _, _ := h.circuitBreaker.ShouldTrip(ctx, webhookID, cbCfg.ErrorThresholdPercentage, cbCfg.MinRequestsToTrip, cbCfg.EvaluationWindowSeconds)
 	return shouldTrip
 }
 
@@ -208,4 +191,16 @@ func (h notifyEventHandlerImpl) handleFailure(ctx context.Context, webhookID str
 
 func (h notifyEventHandlerImpl) fallbackToTemporal(ctx context.Context, evt subscriber.Event) error {
 	return h.RegisterHandler.Execute(ctx, evt)
+}
+
+func (h notifyEventHandlerImpl) GetActiveWebhooks(ctx context.Context) ([]*webhook.Webhook, error) {
+	return h.webhookRepository.GetActiveWebhooks(ctx)
+}
+
+func (h notifyEventHandlerImpl) CalculateSuccessRate(ctx context.Context, webhookID string) (float64, int64, error) {
+	return h.webhookRepository.CalculateSuccessRate(ctx, webhookID)
+}
+
+func (h notifyEventHandlerImpl) DisableWebhook(ctx context.Context, webhookID string) error {
+	return h.webhookRepository.UpdateWebhookStatus(ctx, webhookID, webhook.StatusInactive)
 }

@@ -26,3 +26,9 @@ from webhook where id = ?;
 
 -- name: GetWebhooksByIDs :many
 SELECT * FROM webhook WHERE id IN (sqlc.slice('webhook_ids'));
+
+-- name: GetActiveWebhooks :many
+SELECT * FROM webhook WHERE status = 'active';
+
+-- name: GetActiveWebhooksPaginated :many
+SELECT * FROM webhook WHERE status = 'active' ORDER BY id LIMIT ? OFFSET ?;

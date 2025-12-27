@@ -12,6 +12,79 @@ import (
 	"strings"
 )
 
+const getActiveWebhooks = `-- name: GetActiveWebhooks :many
+SELECT id, partner_id, status, metadata, created_at, updated_at FROM webhook WHERE status = 'active'
+`
+
+func (q *Queries) GetActiveWebhooks(ctx context.Context) ([]*Webhook, error) {
+	rows, err := q.query(ctx, q.getActiveWebhooksStmt, getActiveWebhooks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Webhook
+	for rows.Next() {
+		var i Webhook
+		if err := rows.Scan(
+			&i.ID,
+			&i.PartnerID,
+			&i.Status,
+			&i.Metadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getActiveWebhooksPaginated = `-- name: GetActiveWebhooksPaginated :many
+SELECT id, partner_id, status, metadata, created_at, updated_at FROM webhook WHERE status = 'active' ORDER BY id LIMIT ? OFFSET ?
+`
+
+type GetActiveWebhooksPaginatedParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) GetActiveWebhooksPaginated(ctx context.Context, arg *GetActiveWebhooksPaginatedParams) ([]*Webhook, error) {
+	rows, err := q.query(ctx, q.getActiveWebhooksPaginatedStmt, getActiveWebhooksPaginated, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Webhook
+	for rows.Next() {
+		var i Webhook
+		if err := rows.Scan(
+			&i.ID,
+			&i.PartnerID,
+			&i.Status,
+			&i.Metadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getWebhookById = `-- name: GetWebhookById :one
 select id, partner_id, status, metadata, created_at, updated_at
 from webhook where id = ?

@@ -22,6 +22,11 @@ type webhookRepository interface {
 	GetFailRate(ctx context.Context, webhookID string) (float64, error)
 	ResetFailRate(ctx context.Context, webhookID string) error
 	IncrSuccessRate(ctx context.Context, webhookID string) error
+	Incr4xxRate(ctx context.Context, webhookID string) (int64, error)
+	Get4xxRate(ctx context.Context, webhookID string) (float64, error)
+	IncrStats(ctx context.Context, webhookID string, isSuccess bool)
+	GetActiveWebhooks(ctx context.Context) ([]*webhook.Webhook, error)
+	CalculateSuccessRate(ctx context.Context, webhookID string) (float64, int64, error)
 }
 
 type temporalAdapter interface {
@@ -41,6 +46,9 @@ type NotifyEventHandler interface {
 	ExecuteWithLogID(ctx context.Context, e subscriber.Event, logID int64, redriveCount int, currentTime time.Time) error
 	GetWebhookById(ctx context.Context, webhookId string) (*webhook.Webhook, error)
 	InsertWebhookLog(ctx context.Context, log *webhook.Log) error
+	GetActiveWebhooks(ctx context.Context) ([]*webhook.Webhook, error)
+	CalculateSuccessRate(ctx context.Context, webhookID string) (float64, int64, error)
+	DisableWebhook(ctx context.Context, webhookID string) error
 }
 
 type Application struct {

@@ -24,6 +24,12 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.getActiveWebhooksStmt, err = db.PrepareContext(ctx, getActiveWebhooks); err != nil {
+		return nil, fmt.Errorf("error preparing query GetActiveWebhooks: %w", err)
+	}
+	if q.getActiveWebhooksPaginatedStmt, err = db.PrepareContext(ctx, getActiveWebhooksPaginated); err != nil {
+		return nil, fmt.Errorf("error preparing query GetActiveWebhooksPaginated: %w", err)
+	}
 	if q.getWebhookByIdStmt, err = db.PrepareContext(ctx, getWebhookById); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWebhookById: %w", err)
 	}
@@ -53,6 +59,16 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.getActiveWebhooksStmt != nil {
+		if cerr := q.getActiveWebhooksStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getActiveWebhooksStmt: %w", cerr)
+		}
+	}
+	if q.getActiveWebhooksPaginatedStmt != nil {
+		if cerr := q.getActiveWebhooksPaginatedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getActiveWebhooksPaginatedStmt: %w", cerr)
+		}
+	}
 	if q.getWebhookByIdStmt != nil {
 		if cerr := q.getWebhookByIdStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getWebhookByIdStmt: %w", cerr)
@@ -132,6 +148,8 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                                DBTX
 	tx                                *sql.Tx
+	getActiveWebhooksStmt             *sql.Stmt
+	getActiveWebhooksPaginatedStmt    *sql.Stmt
 	getWebhookByIdStmt                *sql.Stmt
 	getWebhooksByIDsStmt              *sql.Stmt
 	insertWebhookLogStmt              *sql.Stmt
@@ -146,6 +164,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                                tx,
 		tx:                                tx,
+		getActiveWebhooksStmt:             q.getActiveWebhooksStmt,
+		getActiveWebhooksPaginatedStmt:    q.getActiveWebhooksPaginatedStmt,
 		getWebhookByIdStmt:                q.getWebhookByIdStmt,
 		getWebhooksByIDsStmt:              q.getWebhooksByIDsStmt,
 		insertWebhookLogStmt:              q.insertWebhookLogStmt,

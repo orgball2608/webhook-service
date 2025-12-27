@@ -130,3 +130,15 @@ func (w registerHandlerWrapper) GetWebhookById(ctx context.Context, webhookId st
 func (w registerHandlerWrapper) InsertWebhookLog(ctx context.Context, log *webhookEntity.Log) error {
 	return w.webhookRepo.InsertWebhookLog(ctx, log)
 }
+
+func (w registerHandlerWrapper) GetActiveWebhooks(ctx context.Context) ([]*webhookEntity.Webhook, error) {
+	return w.webhookRepo.GetActiveWebhooks(ctx)
+}
+
+func (w registerHandlerWrapper) CalculateSuccessRate(ctx context.Context, webhookID string) (float64, int64, error) {
+	return w.webhookRepo.CalculateSuccessRate(ctx, webhookID)
+}
+
+func (w registerHandlerWrapper) DisableWebhook(ctx context.Context, webhookID string) error {
+	return w.webhookRepo.UpdateWebhookStatus(ctx, webhookID, webhookEntity.StatusInactive)
+}
