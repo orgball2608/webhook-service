@@ -18,12 +18,14 @@ type webhookRepository interface {
 	InsertWebhookLog(ctx context.Context, log *webhook.Log) error
 	UpdateWebhookStatus(ctx context.Context, webhookId string, status webhook.Status) error
 	UpdateWebhookLogRedriveStatus(ctx context.Context, id int64, isResolved bool, errorMsg string, nextRedriveAt *time.Time) error
-	IncrFailStreak(ctx context.Context, webhookID string) (int64, error)
-	GetFailStreak(ctx context.Context, webhookID string) (int64, error)
+	IncrFailRate(ctx context.Context, webhookID string) (int64, error)
+	GetFailRate(ctx context.Context, webhookID string) (float64, error)
+	ResetFailRate(ctx context.Context, webhookID string) error
+	IncrSuccessRate(ctx context.Context, webhookID string) error
 }
 
 type temporalAdapter interface {
-	RegisterWorkflowNotifyEvent(ctx context.Context, e subscriber.Event, priority string) error
+	RegisterWorkflowNotifyEvent(ctx context.Context, e subscriber.Event) error
 }
 
 type RateLimiter interface {

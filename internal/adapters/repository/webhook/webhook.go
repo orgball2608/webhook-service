@@ -193,22 +193,67 @@ func (r Repository) UpdateWebhookLogStatus(ctx context.Context, id int64, status
 	return err
 }
 
-func (r Repository) IncrFailStreak(ctx context.Context, webhookID string) (int64, error) {
-	key := common.RedisKeyFailStreak + webhookID
-	count, err := r.redis.Incr(ctx, key).Result()
+func (r Repository) IncrFailRate(ctx context.Context, webhookID string) (int64, error) {
+	key := common.RedisKeyFailRate + webhookID
+	now := float64(time.Now().Unix())
+	// Add timestamp to sorted set
+	err := r.redis.ZAdd(ctx, key, redis.Z{Score: now, Member: now}).Err()
 	if err != nil {
 		return 0, err
 	}
-	// Set TTL to expire after 24 hours or something
-	r.redis.Expire(ctx, key, 24*time.Hour)
+	// Remove old entries (older than 1 hour)
+	min := fmt.Sprintf("%f", float64(time.Now().Add(-time.Hour).Unix()))
+	r.redis.ZRemRangeByScore(ctx, key, "-inf", min)
+	// Get count
+	count, err := r.redis.ZCard(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
 	return count, nil
 }
 
-func (r Repository) GetFailStreak(ctx context.Context, webhookID string) (int64, error) {
-	key := common.RedisKeyFailStreak + webhookID
-	count, err := r.redis.Get(ctx, key).Int64()
+func (r Repository) GetFailRate(ctx context.Context, webhookID string) (float64, error) {
+	failKey := common.RedisKeyFailRate + webhookID
+	successKey := common.RedisKeySuccessRate + webhookID
+	min := fmt.Sprintf("%f", float64(time.Now().Add(-time.Hour).Unix()))
+
+	// Clean old entries
+	r.redis.ZRemRangeByScore(ctx, failKey, "-inf", min)
+	r.redis.ZRemRangeByScore(ctx, successKey, "-inf", min)
+
+	failCount, err := r.redis.ZCard(ctx, failKey).Result()
 	if err != nil {
 		return 0, err
 	}
-	return count, nil
+	successCount, err := r.redis.ZCard(ctx, successKey).Result()
+	if err != nil {
+		return 0, err
+	}
+	total := failCount + successCount
+	if total == 0 {
+		return 0, nil
+	}
+	return float64(failCount) / float64(total) * 100, nil
+}
+
+func (r Repository) ResetFailRate(ctx context.Context, webhookID string) error {
+	failKey := common.RedisKeyFailRate + webhookID
+	successKey := common.RedisKeySuccessRate + webhookID
+	r.redis.Del(ctx, failKey)
+	r.redis.Del(ctx, successKey)
+	return nil
+}
+
+func (r Repository) IncrSuccessRate(ctx context.Context, webhookID string) error {
+	key := common.RedisKeySuccessRate + webhookID
+	now := float64(time.Now().Unix())
+	// Add timestamp to sorted set
+	err := r.redis.ZAdd(ctx, key, redis.Z{Score: now, Member: now}).Err()
+	if err != nil {
+		return err
+	}
+	// Remove old entries (older than 1 hour)
+	min := fmt.Sprintf("%f", float64(time.Now().Add(-time.Hour).Unix()))
+	r.redis.ZRemRangeByScore(ctx, key, "-inf", min)
+	return nil
 }

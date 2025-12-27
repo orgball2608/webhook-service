@@ -23,6 +23,11 @@ var (
 	activityNotifyEventToPartner = "ActivityNotifyEventToPartner"
 	activityGetWebhook           = "ActivityGetWebhook"
 	activityCheckThrottling      = "ActivityCheckThrottling"
+
+	partnerIDKey    = temporal.NewSearchAttributeKeyKeyword(common.PartnerIDKey)
+	webhookIDKey    = temporal.NewSearchAttributeKeyKeyword(common.WebhookIDKey)
+	eventNameKey    = temporal.NewSearchAttributeKeyKeyword(common.EventNameKey)
+	initialQueueKey = temporal.NewSearchAttributeKeyKeyword(common.InitialQueueKey)
 )
 
 type NotifyEventToPartner struct {
@@ -54,7 +59,7 @@ func (t *NotifyEventToPartner) Register(temporalWorker worker.Worker) {
 	)
 }
 
-func (t *NotifyEventToPartner) workflow(ctx workflow.Context, e subscriber.Event) error {
+func (t *NotifyEventToPartner) workflow(ctx workflow.Context, e subscriber.Event, initialQueue string) error {
 	logger := zap.S().With("webhook_id", e.WebhookId)
 	logger.Info("workflow NotifyEventToPartner started")
 
@@ -68,10 +73,12 @@ func (t *NotifyEventToPartner) workflow(ctx workflow.Context, e subscriber.Event
 		return err
 	}
 
-	err = workflow.UpsertSearchAttributes(ctx, map[string]interface{}{
-		common.PartnerIDKey: wh.PartnerId,
-		common.WebhookIDKey: wh.Id,
-	})
+	err = workflow.UpsertTypedSearchAttributes(ctx,
+		partnerIDKey.ValueSet(wh.PartnerId),
+		webhookIDKey.ValueSet(wh.Id),
+		eventNameKey.ValueSet(string(e.EventName)),
+		initialQueueKey.ValueSet(initialQueue),
+	)
 	if err != nil {
 		return err
 	}
@@ -102,29 +109,49 @@ func (t *NotifyEventToPartner) workflow(ctx workflow.Context, e subscriber.Event
 		}
 	}
 
-	ctxActivityMain := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
-		StartToCloseTimeout: time.Second * 120,
+	// Phase 1: Initial attempt on selected queue
+	aoPhase1 := workflow.ActivityOptions{
+		TaskQueue:           initialQueue,
+		StartToCloseTimeout: 5 * time.Second,
 		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:        300 * time.Second,
-			BackoffCoefficient:     6.0,
-			MaximumInterval:        10800 * time.Second,
-			MaximumAttempts:        4,
-			NonRetryableErrorTypes: []string{},
+			MaximumAttempts: 1,
 		},
-	})
+	}
+
 	eventPayload, _ := json.Marshal(e)
 	redriveEvent := RedriveEvent{
-		LogID:              0, // First attempt, no log ID yet
+		LogID:              0,
 		WebhookID:          e.WebhookId,
 		PartnerID:          wh.PartnerId,
 		EventPayload:       eventPayload,
-		RateLimitPerMinute: rate,
+		RateLimitPerMinute: wh.Metadata.RateLimitPerMinute,
 		CurrentTime:        workflow.Now(ctx),
 	}
-	if err := workflow.ExecuteActivity(ctxActivityMain, activityNotifyEventToPartner, redriveEvent).Get(ctx, nil); err != nil {
+
+	err = workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aoPhase1), activityNotifyEventToPartner, redriveEvent).Get(ctx, nil)
+	if err == nil {
+		return nil
+	}
+
+	// Terminal errors (400, 401, 404) are not retried
+	if isTerminalError(err) {
 		return err
 	}
-	return nil
+
+	// Phase 2: Retry on Backlog queue with exponential backoff
+	aoPhase2 := workflow.ActivityOptions{
+		TaskQueue:           common.QueueBacklog,
+		StartToCloseTimeout: 10 * time.Second,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:        5 * time.Minute,
+			BackoffCoefficient:     2.0,
+			MaximumInterval:        8 * time.Hour,
+			MaximumAttempts:        14,
+			NonRetryableErrorTypes: []string{"TerminalError"},
+		},
+	}
+
+	return workflow.ExecuteActivity(workflow.WithActivityOptions(ctx, aoPhase2), activityNotifyEventToPartner, redriveEvent).Get(ctx, nil)
 }
 
 func isTerminalError(err error) bool {

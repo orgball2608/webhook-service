@@ -33,19 +33,25 @@ func startTemporalWorker(cmdCLI *cli.Context) error {
 	fx.New(
 		service.ProvideApplication(conf),
 		fx.Provide(temporal_workflow.NewWorkflowNotifyEventToPartner),
-		fx.Provide(func(conf config.Config) map[string]int {
-			return map[string]int{
-				common.TaskQueueDefault: 100,
-				common.TaskQueueHigh:    500,
-				common.TaskQueueLow:     20,
+		fx.Provide(func(conf config.Config) map[string]worker.Options {
+			return map[string]worker.Options{
+				common.QueueCritical: {
+					MaxConcurrentActivityExecutionSize: 1000,
+				},
+				common.QueueDefault: {
+					MaxConcurrentActivityExecutionSize: 300,
+					WorkerActivitiesPerSecond:          500, // Throttling để không lấn át làn Critical
+				},
+				common.QueueBacklog: {
+					MaxConcurrentActivityExecutionSize: 50,
+					WorkerActivitiesPerSecond:          20, // Chỉ cho 20 req/s để bảo vệ MySQL và Partner
+				},
 			}
 		}),
-		fx.Invoke(func(queues map[string]int, workflow *temporal_workflow.NotifyEventToPartner, conf config.Config) {
+		fx.Invoke(func(queues map[string]worker.Options, workflow *temporal_workflow.NotifyEventToPartner, conf config.Config) {
 			metric_server.StartPromAndHealthHTTPServerNoLocking(conf.Monitoring.TemporalWorkerPrometheusPort)
-			for qName, concurrency := range queues {
-				w, err := temporal.NewTemporalWorkerWithOptions(conf.Temporal, qName, worker.Options{
-					MaxConcurrentActivityExecutionSize: concurrency,
-				})
+			for qName, options := range queues {
+				w, err := temporal.NewTemporalWorkerWithOptions(conf.Temporal, qName, options)
 				if err != nil {
 					panic(fmt.Errorf("init temporal worker for queue %s got error: %w", qName, err))
 				}

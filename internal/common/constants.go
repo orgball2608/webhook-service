@@ -4,13 +4,14 @@ const (
 	PriorityHigh = "high"
 	PriorityLow  = "low"
 
-	TaskQueueHigh    = "webhook-high-priority"
-	TaskQueueLow     = "webhook-low-priority"
-	TaskQueueDefault = "webhook-default"
+	QueueCritical = "webhook-critical"
+	QueueDefault  = "webhook-default"
+	QueueBacklog  = "webhook-backlog"
 
 	// Redis Keys
-	RedisKeyCBPrefix   = "webhook:cb:open:"
-	RedisKeyFailStreak = "webhook:fail_streak:"
+	RedisKeyCBPrefix    = "webhook:cb:open:"
+	RedisKeyFailRate    = "webhook:fail_rate:"
+	RedisKeySuccessRate = "webhook:success_rate:"
 
 	// Cron
 	CronRedriveSchedule = "*/5 * * * *" // Chạy mỗi 5 phút một lần

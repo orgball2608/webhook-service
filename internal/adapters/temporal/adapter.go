@@ -24,35 +24,35 @@ func NewAdapter(temporalClient client.Client, taskQueue string) Adapter {
 	return Adapter{temporalClient: temporalClient, taskQueue: taskQueue}
 }
 
-func (a Adapter) RegisterWorkflowNotifyEvent(ctx context.Context, e subscriber.Event, priority string) error {
+func (a Adapter) RegisterWorkflowNotifyEvent(ctx context.Context, e subscriber.Event) error {
 	hash, err := HashEventPayload(e)
 	if err != nil {
 		return fmt.Errorf("failed to hash event payload: %w", err)
 	}
 	workflowID := fmt.Sprintf("webhook.notify_event:%s", hash)
 
-	var taskQueue string
-	switch priority {
-	case common.PriorityHigh:
-		taskQueue = common.TaskQueueHigh
-	case common.PriorityLow:
-		taskQueue = common.TaskQueueLow
-	default:
-		taskQueue = common.TaskQueueDefault
-	}
+	initialQueue := a.DetermineInitialQueue(e)
 
 	wlOpts := client.StartWorkflowOptions{
 		ID:                    workflowID,
-		TaskQueue:             taskQueue,
+		TaskQueue:             initialQueue, // Use initialQueue as TaskQueue for workflow start
 		WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
 	}
 
-	wlExec, err := a.temporalClient.ExecuteWorkflow(ctx, wlOpts, app.WorkflowNotifyEvent, e)
+	wlExec, err := a.temporalClient.ExecuteWorkflow(ctx, wlOpts, app.WorkflowNotifyEvent, e, initialQueue)
 	if err != nil {
 		return fmt.Errorf("failed to execute workflow: %w", err)
 	}
 	logging.FromContext(ctx).Infow("execute workflow %s using runId %s", wlExec.GetID(), wlExec.GetRunID())
 	return nil
+}
+
+func (a Adapter) DetermineInitialQueue(e subscriber.Event) string {
+	// Ưu tiên tuyệt đối cho Stock/Payment
+	if e.EventName == "subscriber.sync_stock" || e.EventName == "subscriber.payment_success" {
+		return common.QueueCritical
+	}
+	return common.QueueDefault
 }
 
 func HashEventPayload(payload interface{}) (string, error) {

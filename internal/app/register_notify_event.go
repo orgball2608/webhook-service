@@ -55,8 +55,7 @@ func (h RegisterNotifyEventHandler) Execute(ctx context.Context, e subscriber.Ev
 		return nil // notify if not registered for event
 	}
 
-	priority := w.Metadata.Priority
-	err = h.temporalAdapter.RegisterWorkflowNotifyEvent(ctx, e, priority)
+	err = h.temporalAdapter.RegisterWorkflowNotifyEvent(ctx, e)
 	if err != nil {
 		return fmt.Errorf("temporal adapter failed to trigger notify webhook: %w", err)
 	}

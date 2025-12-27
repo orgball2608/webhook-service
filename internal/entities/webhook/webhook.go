@@ -16,10 +16,9 @@ type Webhook struct {
 type Status string
 
 const (
-	StatusActive              Status = "ACTIVE"
-	StatusInactive            Status = "INACTIVE"
-	StatusPendingVerification Status = "PENDING_VERIFICATION"
-	StatusPaused              Status = "PAUSED"
+	StatusActive   Status = "ACTIVE"
+	StatusInactive Status = "INACTIVE"
+	StatusPaused   Status = "PAUSED"
 )
 
 func NewWebhook(Id, PartnerId string, md Metadata) *Webhook {

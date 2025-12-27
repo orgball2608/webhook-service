@@ -37,7 +37,7 @@ func TestRegisterNotifyEventHandler_Execute(t *testing.T) {
 			}, nil)
 		webhookRepo.EXPECT().InsertWebhookLog(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockTemporalAdapter := NewMocktemporalAdapter(gomock.NewController(tt))
-		mockTemporalAdapter.EXPECT().RegisterWorkflowNotifyEvent(gomock.Any(), sampleEvent, gomock.Any()).Return(nil)
+		mockTemporalAdapter.EXPECT().RegisterWorkflowNotifyEvent(gomock.Any(), sampleEvent).Return(nil)
 
 		cmdRegisterNotifyEventHandler := NewRegisterNotifyEventHandler(mockTemporalAdapter, webhookRepo)
 		err := cmdRegisterNotifyEventHandler.Execute(context.Background(), sampleEvent)
@@ -161,7 +161,7 @@ func TestRegisterNotifyEventHandler_Execute(t *testing.T) {
 				},
 			}, nil)
 		mockTemporalAdapter := NewMocktemporalAdapter(gomock.NewController(tt))
-		mockTemporalAdapter.EXPECT().RegisterWorkflowNotifyEvent(gomock.Any(), sampleEvent, gomock.Any()).Return(fmt.Errorf("any error"))
+		mockTemporalAdapter.EXPECT().RegisterWorkflowNotifyEvent(gomock.Any(), sampleEvent).Return(fmt.Errorf("any error"))
 
 		cmdRegisterNotifyEventHandler := NewRegisterNotifyEventHandler(mockTemporalAdapter, webhookRepo)
 		err := cmdRegisterNotifyEventHandler.Execute(context.Background(), sampleEvent)
