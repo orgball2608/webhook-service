@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"time"
@@ -19,58 +20,76 @@ import (
 	"github.com/minhvuongrbs/webhook-service/pkg/logging"
 	"github.com/minhvuongrbs/webhook-service/pkg/redis"
 	pkgtemporal "github.com/minhvuongrbs/webhook-service/pkg/temporal"
+	goredis "github.com/redis/go-redis/v9"
+	"go.temporal.io/sdk/client"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
-func NewApplication(conf config.Config) (app.App, error) {
-	db, err := database.NewMysqlDatabaseConn(conf.Database)
-	if err != nil {
-		return app.App{}, fmt.Errorf("failed to connect database: %w", err)
-	}
-	redisClient, err := redis.NewRedisClient(conf.RedisConnection)
-	if err != nil {
-		return app.App{}, fmt.Errorf("failed to connect redis: %w", err)
-	}
-	webhookRepo := webhook.NewRepository(db, redisClient)
-
-	httpClientTP := httpclient.NewRoundTripper()
-	httpClient := http.Client{Timeout: conf.HttpClient.Timeout, Transport: httpClientTP}
-
-	// Initialize logger
-	err = logging.InitLogger(conf.Logger)
-	if err != nil {
-		return app.App{}, fmt.Errorf("failed to initialize logger: %w", err)
-	}
-	logger := &simpleLogger{}
-
-	temporalClient, err := pkgtemporal.NewTemporalClient(conf.Temporal)
-	if err != nil {
-		return app.App{}, fmt.Errorf("failed to create temporal client: %w", err)
-	}
-	temporalAdapter := temporal.NewAdapter(temporalClient, conf.Temporal.TaskQueue)
-	redisRateLimiter := redisrl.NewRedisRateLimiter(redisClient)
-	circuitBreakerManager := redisrl.NewCircuitBreakerManager(redisClient)
-	circuitBreakerAdapter := redisrl.NewCircuitBreakerManagerAdapter(circuitBreakerManager)
-
-	var partnerAdapter app.PartnerAdapter
-	if config.IsLoadTestEnv(conf.Env) {
-		fmt.Println("system is running under loadtest environment")
-		partnerAdapter = partner.NewLoadTestAdapter()
-	} else {
-		partnerAdapter = partner.NewAdapter(httpClient, redisRateLimiter, logger, 3)
-	}
-
-	registerHandler := app.NewRegisterNotifyEventHandler(temporalAdapter, webhookRepo)
-	registerHandlerWrapper := registerHandlerWrapper{handler: registerHandler, webhookRepo: webhookRepo}
-
-	return app.App{
-		RegisterNotifyEventHandler: registerHandler,
-		NotifyEventHandler:         app.NewNotifyEventHandler(webhookRepo, partnerAdapter, circuitBreakerAdapter, redisRateLimiter, registerHandlerWrapper),
-		RedisClient:                redisClient,
-		RateLimiter:                redisRateLimiter,
-		PartnerAdapter:             partnerAdapter,
-		CircuitBreakerManager:      circuitBreakerAdapter,
-	}, nil
+// ProvideApplication returns fx options for dependency injection
+func ProvideApplication(conf config.Config) fx.Option {
+	return fx.Options(
+		fx.Provide(func() config.Config { return conf }),
+		fx.Provide(database.NewMysqlDatabaseConn),
+		fx.Provide(redis.NewRedisClient),
+		fx.Provide(func(db *sql.DB, redisClient *goredis.Client) webhook.Repository {
+			return webhook.NewRepository(db, redisClient)
+		}),
+		fx.Provide(func() *http.Client {
+			httpClientTP := httpclient.NewRoundTripper()
+			return &http.Client{Timeout: conf.HttpClient.Timeout, Transport: httpClientTP}
+		}),
+		fx.Provide(func() *simpleLogger { return &simpleLogger{} }),
+		fx.Provide(pkgtemporal.NewTemporalClient),
+		fx.Provide(func(temporalClient client.Client, conf config.Config) temporal.Adapter {
+			return temporal.NewAdapter(temporalClient, conf.Temporal.TaskQueue)
+		}),
+		fx.Provide(func(redisClient *goredis.Client) app.RateLimiter {
+			return redisrl.NewRedisRateLimiter(redisClient)
+		}),
+		fx.Provide(func(redisClient *goredis.Client) app.CircuitBreaker {
+			return redisrl.NewCircuitBreakerManagerAdapter(redisrl.NewCircuitBreakerManager(redisClient))
+		}),
+		fx.Provide(func(httpClient *http.Client, rateLimiter app.RateLimiter, logger *simpleLogger, conf config.Config) app.PartnerAdapter {
+			if config.IsLoadTestEnv(conf.Env) {
+				fmt.Println("system is running under loadtest environment")
+				return partner.NewLoadTestAdapter()
+			}
+			return partner.NewAdapter(*httpClient, rateLimiter, logger, 3)
+		}),
+		fx.Provide(func(temporalAdapter temporal.Adapter, webhookRepo webhook.Repository) app.RegisterNotifyEventHandler {
+			return app.NewRegisterNotifyEventHandler(&temporalAdapter, webhookRepo)
+		}),
+		fx.Provide(func(webhookRepo webhook.Repository, partnerAdapter app.PartnerAdapter, circuitBreaker app.CircuitBreaker, rateLimiter app.RateLimiter, registerHandler app.RegisterNotifyEventHandler) app.NotifyEventHandler {
+			registerHandlerWrapper := registerHandlerWrapper{handler: registerHandler, webhookRepo: webhookRepo}
+			return app.NewNotifyEventHandler(webhookRepo, partnerAdapter, circuitBreaker, rateLimiter, registerHandlerWrapper)
+		}),
+		fx.Provide(func(registerHandler app.RegisterNotifyEventHandler, notifyHandler app.NotifyEventHandler, redisClient *goredis.Client, rateLimiter app.RateLimiter, partnerAdapter app.PartnerAdapter, circuitBreaker app.CircuitBreaker) app.App {
+			return app.App{
+				RegisterNotifyEventHandler: registerHandler,
+				NotifyEventHandler:         notifyHandler,
+				RedisClient:                redisClient,
+				RateLimiter:                rateLimiter,
+				PartnerAdapter:             partnerAdapter,
+				CircuitBreakerManager:      circuitBreaker,
+			}
+		}),
+		fx.Invoke(logging.InitLogger), // Initialize logger on startup
+		fx.Invoke(func(lc fx.Lifecycle, db *sql.DB, redisClient *goredis.Client, temporalClient client.Client) {
+			lc.Append(fx.Hook{
+				OnStop: func(ctx context.Context) error {
+					if err := db.Close(); err != nil {
+						return err
+					}
+					if err := redisClient.Close(); err != nil {
+						return err
+					}
+					temporalClient.Close()
+					return nil
+				},
+			})
+		}),
+	)
 }
 
 type simpleLogger struct{}
