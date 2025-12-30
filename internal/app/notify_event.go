@@ -12,13 +12,13 @@ import (
 
 type notifyEventHandlerImpl struct {
 	partnerAdapter    PartnerAdapter
-	webhookRepository webhookRepository
+	webhookRepository WebhookRepository
 	circuitBreaker    CircuitBreaker
 	rateLimiter       RateLimiter
 	RegisterHandler   NotifyEventHandler
 }
 
-func NewNotifyEventHandler(webhookRepository webhookRepository, partnerAdapter PartnerAdapter, circuitBreaker CircuitBreaker, rateLimiter RateLimiter, registerHandler NotifyEventHandler) NotifyEventHandler {
+func NewNotifyEventHandler(webhookRepository WebhookRepository, partnerAdapter PartnerAdapter, circuitBreaker CircuitBreaker, rateLimiter RateLimiter, registerHandler NotifyEventHandler) NotifyEventHandler {
 	return notifyEventHandlerImpl{
 		webhookRepository: webhookRepository,
 		partnerAdapter:    partnerAdapter,
@@ -197,10 +197,18 @@ func (h notifyEventHandlerImpl) GetActiveWebhooks(ctx context.Context) ([]*webho
 	return h.webhookRepository.GetActiveWebhooks(ctx)
 }
 
+func (h notifyEventHandlerImpl) GetActiveWebhooksPaginated(ctx context.Context, offset, limit int) ([]*webhook.Webhook, error) {
+	return h.webhookRepository.GetActiveWebhooksPaginated(ctx, offset, limit)
+}
+
 func (h notifyEventHandlerImpl) CalculateSuccessRate(ctx context.Context, webhookID string) (float64, int64, error) {
 	return h.webhookRepository.CalculateSuccessRate(ctx, webhookID)
 }
 
 func (h notifyEventHandlerImpl) DisableWebhook(ctx context.Context, webhookID string) error {
 	return h.webhookRepository.UpdateWebhookStatus(ctx, webhookID, webhook.StatusInactive)
+}
+
+func (h notifyEventHandlerImpl) FetchWebhooksByIDs(ctx context.Context, ids []string) ([]*webhook.Webhook, error) {
+	return h.webhookRepository.FetchWebhooksByIDs(ctx, ids)
 }

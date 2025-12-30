@@ -13,7 +13,8 @@ type PartnerAdapter interface {
 	NotifyWebhookEvent(ctx context.Context, w *webhook.Webhook, subscriberEvent subscriber.Event) (*webhook.WebhookResponse, error)
 }
 
-type webhookRepository interface {
+// Exported repository interface so other packages can assert implementation
+type WebhookRepository interface {
 	GetWebhookById(ctx context.Context, webhookId string) (*webhook.Webhook, error)
 	InsertWebhookLog(ctx context.Context, log *webhook.Log) error
 	UpdateWebhookStatus(ctx context.Context, webhookId string, status webhook.Status) error
@@ -26,7 +27,9 @@ type webhookRepository interface {
 	Get4xxRate(ctx context.Context, webhookID string) (float64, error)
 	IncrStats(ctx context.Context, webhookID string, isSuccess bool)
 	GetActiveWebhooks(ctx context.Context) ([]*webhook.Webhook, error)
+	GetActiveWebhooksPaginated(ctx context.Context, offset, limit int) ([]*webhook.Webhook, error)
 	CalculateSuccessRate(ctx context.Context, webhookID string) (float64, int64, error)
+	FetchWebhooksByIDs(ctx context.Context, ids []string) ([]*webhook.Webhook, error)
 }
 
 type temporalAdapter interface {
@@ -47,15 +50,15 @@ type NotifyEventHandler interface {
 	GetWebhookById(ctx context.Context, webhookId string) (*webhook.Webhook, error)
 	InsertWebhookLog(ctx context.Context, log *webhook.Log) error
 	GetActiveWebhooks(ctx context.Context) ([]*webhook.Webhook, error)
+	GetActiveWebhooksPaginated(ctx context.Context, offset, limit int) ([]*webhook.Webhook, error)
 	CalculateSuccessRate(ctx context.Context, webhookID string) (float64, int64, error)
 	DisableWebhook(ctx context.Context, webhookID string) error
+	FetchWebhooksByIDs(ctx context.Context, ids []string) ([]*webhook.Webhook, error)
 }
 
-type Application struct {
-	RegisterNotifyEventHandler NotifyEventHandler
-	NotifyEventHandler         NotifyEventHandler
-	RedisClient                interface{}
-	RateLimiter                RateLimiter
-	PartnerAdapter             PartnerAdapter
-	CircuitBreakerManager      CircuitBreaker
+type Application interface {
+	GetActiveWebhooksPaginated(ctx context.Context, offset, limit int) ([]*webhook.Webhook, error)
+	CalculateSuccessRate(ctx context.Context, webhookID string) (float64, int64, error)
+	DisableWebhook(ctx context.Context, webhookID string) error
+	FetchWebhooksByIDs(ctx context.Context, ids []string) ([]*webhook.Webhook, error)
 }

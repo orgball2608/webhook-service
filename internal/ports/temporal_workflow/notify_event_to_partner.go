@@ -34,8 +34,8 @@ type NotifyEventToPartner struct {
 	app app.App
 }
 
-func NewWorkflowNotifyEventToPartner(app app.App) (NotifyEventToPartner, error) {
-	return NotifyEventToPartner{
+func NewWorkflowNotifyEventToPartner(app app.App) (*NotifyEventToPartner, error) {
+	return &NotifyEventToPartner{
 		app: app,
 	}, nil
 }

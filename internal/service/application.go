@@ -74,6 +74,16 @@ func ProvideApplication(conf config.Config) fx.Option {
 				CircuitBreakerManager:      circuitBreaker,
 			}
 		}),
+		fx.Provide(func(a app.App) app.Application { return &a }),
+		fx.Provide(func(cfg config.Config) logging.Config {
+			return cfg.Logger
+		}),
+		fx.Provide(func(cfg config.Config) redis.Config {
+			return cfg.RedisConnection
+		}),
+		fx.Provide(func(cfg config.Config) pkgtemporal.Config {
+			return cfg.Temporal
+		}),
 		fx.Invoke(logging.InitLogger), // Initialize logger on startup
 		fx.Invoke(func(lc fx.Lifecycle, db *sql.DB, redisClient *goredis.Client, temporalClient client.Client) {
 			lc.Append(fx.Hook{
@@ -113,6 +123,14 @@ func (l *simpleLogger) Warn(msg string, keysAndValues ...interface{}) {
 type registerHandlerWrapper struct {
 	handler     app.RegisterNotifyEventHandler
 	webhookRepo webhook.Repository
+}
+
+func (w registerHandlerWrapper) FetchWebhooksByIDs(ctx context.Context, ids []string) ([]*webhookEntity.Webhook, error) {
+	return w.webhookRepo.FetchWebhooksByIDs(ctx, ids)
+}
+
+func (w registerHandlerWrapper) GetActiveWebhooksPaginated(ctx context.Context, offset, limit int) ([]*webhookEntity.Webhook, error) {
+	return w.webhookRepo.GetActiveWebhooksPaginated(ctx, offset, limit)
 }
 
 func (w registerHandlerWrapper) Execute(ctx context.Context, e subscriber.Event) error {

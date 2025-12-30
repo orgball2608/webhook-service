@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/minhvuongrbs/webhook-service/internal/adapters/repository/sqlc/da_generated"
+	"github.com/minhvuongrbs/webhook-service/internal/app"
 	"github.com/minhvuongrbs/webhook-service/internal/entities/webhook"
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/lo"
@@ -26,6 +27,9 @@ type Repository struct {
 func NewRepository(db *sql.DB, redis *redis.Client) Repository {
 	return Repository{db: db, redis: redis}
 }
+
+// Ensure Repository implements app.WebhookRepository
+var _ app.WebhookRepository = (*Repository)(nil)
 
 func (r Repository) GetWebhookById(ctx context.Context, webhookId string) (*webhook.Webhook, error) {
 	// Try cache first
@@ -409,4 +413,29 @@ func toInt64(v interface{}) (int64, error) {
 
 func parseInt(s string) (int64, error) {
 	return strconv.ParseInt(s, 10, 64)
+}
+
+func (r Repository) FetchWebhooksByIDs(ctx context.Context, ids []string) ([]*webhook.Webhook, error) {
+	if len(ids) == 0 {
+		return []*webhook.Webhook{}, nil
+	}
+	q := da_generated.New(r.db)
+	rows, err := q.GetWebhooksByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*webhook.Webhook, 0, len(rows))
+	for _, w := range rows {
+		var md webhook.Metadata
+		_ = json.Unmarshal(w.Metadata, &md)
+		result = append(result, &webhook.Webhook{
+			Id:        w.ID,
+			Status:    toEntityStatus(w.Status),
+			PartnerId: w.PartnerID,
+			Metadata:  md,
+			CreatedAt: w.CreatedAt,
+			UpdatedAt: w.UpdatedAt,
+		})
+	}
+	return result, nil
 }

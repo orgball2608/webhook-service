@@ -1,13 +1,13 @@
-env: local
+env: docker
 logger:
-  environment: "dev"
+  environment: "prod"
   service_name: "webhook_service"
-  level: debug
-  encoding: console
+  level: info
+  encoding: json
   disable_stacktrace: true
 
 database:
-  address: 127.0.0.1:3308
+  address: mysql_app:3306
   user: app_user
   passwd: pwd123
   allow_native_passwords: true
@@ -17,24 +17,24 @@ database:
   conn_max_life_time: 10m
 
 redis_connection:
-  addr: 127.0.0.1:6379
+  addr: redis:6379
   db: 0
   pool_size: 10
 
 kafka_subscriber_event:
-  brokers: 127.0.0.1:29092
+  brokers: broker:29092
   topic: "flodesk.account.subscriber_event"
   auto_commit: true
   client_id: "flodesk.webhook"
   consumer_group: "flodesk.webhook.subscriber_event.notify_event_test3"
 
 dead_letter_producer:
-  brokers: 127.0.0.1:29092
+  brokers: broker:29092
   topic: "flodesk.dead_letter"
   client_id: "flodesk"
 
 temporal:
-  host: 127.0.0.1:7233
+  host: temporal:7233
   namespace: flodesk
   task_queue: webhook
   enable_tls: false

@@ -16,10 +16,10 @@ var localPausedCache = cache.New(5*time.Minute, 10*time.Minute)
 
 type RegisterNotifyEventHandler struct {
 	temporalAdapter   temporalAdapter
-	webhookRepository webhookRepository
+	webhookRepository WebhookRepository
 }
 
-func NewRegisterNotifyEventHandler(temporalAdapter temporalAdapter, webhookRepository webhookRepository) RegisterNotifyEventHandler {
+func NewRegisterNotifyEventHandler(temporalAdapter temporalAdapter, webhookRepository WebhookRepository) RegisterNotifyEventHandler {
 	return RegisterNotifyEventHandler{
 		temporalAdapter:   temporalAdapter,
 		webhookRepository: webhookRepository,

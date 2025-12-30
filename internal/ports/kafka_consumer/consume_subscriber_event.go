@@ -27,6 +27,13 @@ func NewConsumeSubscriberEvent(app app.App, partnerAdapter app.PartnerAdapter, r
 
 func (c ConsumeSubscriberEvent) Handle(ctx context.Context, message *kafka.ConsumerMessage) error {
 	l := logging.FromContext(ctx)
+
+	const maxPayloadSize = 1 * 1024 * 1024 // 1MB
+	if len(message.Payload) > maxPayloadSize {
+		l.Errorw("payload too large, dropping event to prevent OOM", "size", len(message.Payload), "max_allowed", maxPayloadSize)
+		return nil
+	}
+
 	var evt subscriber.Event
 	if err := json.Unmarshal(message.Payload, &evt); err != nil {
 		l.Warnw("cannot unmarshal subscriber event", "error", err, "payload", string(message.Payload))
